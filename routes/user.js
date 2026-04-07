@@ -2,6 +2,20 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
+// GET ALL USERS (Protected)
+router.get("/users", auth, async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+
+    res.json({
+      count: users.length,
+      users,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
 router.get("/profile", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
