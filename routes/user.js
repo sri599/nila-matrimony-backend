@@ -2,6 +2,42 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
+router.get("/users-with-interest", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      _id: { $ne: req.user.id },
+    }).select("-password");
+
+    const interests = await Interest.find({
+      $or: [
+        { sender: req.user.id },
+        { receiver: req.user.id },
+      ],
+    });
+
+    const result = users.map(user => {
+      const relation = interests.find(
+        i =>
+          (i.sender.toString() === req.user.id &&
+            i.receiver.toString() === user._id.toString()) ||
+          (i.receiver.toString() === req.user.id &&
+            i.sender.toString() === user._id.toString())
+      );
+
+      return {
+        ...user.toObject(),
+        interestStatus: relation ? relation.status : null,
+        isSender: relation
+          ? relation.sender.toString() === req.user.id
+          : false,
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).send("Server Error");
+  }
+});
 // GET ALL USERS (Protected)
 router.get("/users", auth, async (req, res) => {
   try {

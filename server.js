@@ -15,7 +15,7 @@ app.use(cors());
 // Routes
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/user", require("./routes/user"));
-app.use("/api/interest", require("./routes/interest"));
+app.use("/api/interests", require("./routes/interest"));
 app.use("/api/notification", require("./routes/notification"));
 // Test route
 app.get("/", (req, res) => {

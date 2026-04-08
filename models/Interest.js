@@ -1,16 +1,21 @@
 const mongoose = require("mongoose");
 
 const InterestSchema = new mongoose.Schema({
-  userId: {
+  sender: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true
+    required: true,
   },
-  interestedIn: {
+  receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true
-  }
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "accepted", "rejected"],
+    default: "pending",
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Interest", InterestSchema);
