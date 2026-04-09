@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
 
 const partnerPreferenceSchema = new mongoose.Schema({
-  age: String,
-  height: String,
+  ageFrom: Number,
+ageTo: Number,
+heightFrom: String,
+heightTo: String,
   maritalStatus: String,
   motherTongue: String,
   physicalStatus: String,
@@ -74,7 +76,15 @@ const userSchema = new mongoose.Schema(
     dob: Date,
     familyStatus: String,
     ancestralOrigin: String,
+    email: String,
+    gender: String,
+    rasi: String,
+    annualIncome: String,
 
+    country: String,
+    citizenship: String,
+    residingState: String,
+    residingCity: String,
     // 🧾 Personal
     about: String,
     hobbies: String,

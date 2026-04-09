@@ -2,12 +2,15 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
+const Interest = require("../models/Interest");
 router.get("/users-with-interest", auth, async (req, res) => {
   try {
+    // 1️⃣ Get all users except current user
     const users = await User.find({
       _id: { $ne: req.user.id },
     }).select("-password");
 
+    // 2️⃣ Get all interests related to current user
     const interests = await Interest.find({
       $or: [
         { sender: req.user.id },
@@ -15,26 +18,37 @@ router.get("/users-with-interest", auth, async (req, res) => {
       ],
     });
 
+    // 3️⃣ Convert interests to map for fast lookup
+    const interestMap = {};
+
+    interests.forEach(i => {
+      const key1 = `${i.sender}_${i.receiver}`;
+      const key2 = `${i.receiver}_${i.sender}`;
+
+      interestMap[key1] = i;
+      interestMap[key2] = i;
+    });
+
+    // 4️⃣ Attach interest info to users
     const result = users.map(user => {
-      const relation = interests.find(
-        i =>
-          (i.sender.toString() === req.user.id &&
-            i.receiver.toString() === user._id.toString()) ||
-          (i.receiver.toString() === req.user.id &&
-            i.sender.toString() === user._id.toString())
-      );
+      const relation = interestMap[`${req.user.id}_${user._id}`];
 
       return {
         ...user.toObject(),
-        interestStatus: relation ? relation.status : null,
+        interestStatus: relation ? relation.status : null, // pending / accepted / rejected
         isSender: relation
           ? relation.sender.toString() === req.user.id
           : false,
       };
     });
 
-    res.json(result);
+    res.json({
+      count: result.length,
+      users: result,
+    });
+
   } catch (err) {
+    console.error(err);
     res.status(500).send("Server Error");
   }
 });
@@ -85,33 +99,41 @@ router.post("/profile", auth, async (req, res) => {
     const user = await User.findById(req.user.id);
 
     const fields = [
-      "username",
-      "maritalStatus",
-      "profileCreatedBy",
-      "age",
-      "height",
-      "caste",
-      "subcaste",
-      "gothram",
-      "dosham",
-      "religion",
-      "degree",
-      "workingStatus",
-      "occupation",
-      "address",
-      "pincode",
-      "physicalStatus",
-      "motherTongue",
-      "eatingHabits",
-      "dob",
-      "familyStatus",
-      "ancestralOrigin",
-      "about",
-      "hobbies",
-      "movies",
-      "smokingHabits",
-      "drinkingHabits"
-    ];
+  "username",
+  "email",              // ✅ NEW
+  "gender",             // ✅ NEW
+  "maritalStatus",
+  "profileCreatedBy",
+  "age",
+  "height",
+  "caste",
+  "subcaste",
+  "gothram",
+  "dosham",
+  "rasi",               // ✅ NEW
+  "religion",
+  "degree",
+  "workingStatus",
+  "occupation",
+  "annualIncome",       // ✅ NEW
+  "address",
+  "pincode",
+  "country",            // ✅ NEW
+  "citizenship",        // ✅ NEW
+  "residingState",      // ✅ NEW
+  "residingCity",       // ✅ NEW
+  "physicalStatus",
+  "motherTongue",
+  "eatingHabits",
+  "dob",
+  "familyStatus",
+  "ancestralOrigin",
+  "about",
+  "hobbies",
+  "movies",
+  "smokingHabits",
+  "drinkingHabits"
+];
 
     fields.forEach(field => {
       if (req.body[field] !== undefined) {
@@ -153,12 +175,61 @@ router.put("/profile", auth, async (req, res) => {
 });
 
 
-// ✅ PARTNER PREFERENCE
 router.post("/partner-preference", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
-    user.partnerPreference = req.body;
+    const {
+      ageFrom,
+      ageTo,
+      heightFrom,
+      heightTo,
+      maritalStatus,
+      motherTongue,
+      physicalStatus,
+      eatingHabits,
+      smokingHabits,
+      drinkingHabits,
+      religion,
+      caste,
+      subcaste,
+      star,
+      dosham,
+      education,
+      employmentType,
+      occupation,
+      annualIncome,
+      country,
+      citizenship,
+      residingState,
+      residingCity,
+    } = req.body;
+
+    user.partnerPreference = {
+      ageFrom,
+      ageTo,
+      heightFrom,
+      heightTo,
+      maritalStatus,
+      motherTongue,
+      physicalStatus,
+      eatingHabits,
+      smokingHabits,
+      drinkingHabits,
+      religion,
+      caste,
+      subcaste,
+      star,
+      dosham,
+      education,
+      employmentType,
+      occupation,
+      annualIncome,
+      country,
+      citizenship,
+      residingState,
+      residingCity,
+    };
 
     await user.save();
 
@@ -167,5 +238,4 @@ router.post("/partner-preference", auth, async (req, res) => {
     res.status(500).send("Server Error");
   }
 });
-
 module.exports = router;
