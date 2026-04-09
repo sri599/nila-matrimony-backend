@@ -3,6 +3,63 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+router.put("/forgot-password", async (req, res) => {
+  try {
+    const { mobile, newPassword } = req.body;
+
+    if (!mobile || !newPassword) {
+      return res.status(400).json({ msg: "Mobile and new password required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        msg: "Password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findOne({ mobile });
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return res.status(400).json({
+        msg: "New password cannot be same as current password",
+      });
+    }
+
+    const history = user.passwordHistory || [];
+
+    for (let old of history) {
+      const match = await bcrypt.compare(newPassword, old);
+      if (match) {
+        return res.status(400).json({
+          msg: "Cannot reuse old password",
+        });
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.passwordHistory = history;
+    user.passwordHistory.unshift(user.password);
+
+    if (user.passwordHistory.length > 5) {
+      user.passwordHistory.pop();
+    }
+
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.json({ msg: "Password reset successful" });
+
+  } catch (err) {
+    console.error("Forgot password error:", err); // ✅ FIX
+    res.status(500).json({ msg: "Forgot password failed" }); // ✅ FIX
+  }
+});
 
 // REGISTER
 router.post("/register", async (req, res) => {

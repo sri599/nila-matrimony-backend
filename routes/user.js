@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
 const Interest = require("../models/Interest");
+const bcrypt = require("bcryptjs");
 router.get("/users-with-interest", auth, async (req, res) => {
   try {
     // 1️⃣ Get all users except current user
@@ -238,4 +239,78 @@ router.post("/partner-preference", auth, async (req, res) => {
     res.status(500).send("Server Error");
   }
 });
+router.put("/change-password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // 1️⃣ Validate
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ msg: "All fields are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        msg: "Password must be at least 6 characters",
+      });
+    }
+
+    // 2️⃣ Get user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // 3️⃣ Check current password
+    if (!user.password) {
+      return res.status(500).json({ msg: "User password missing in DB" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: "Current password is incorrect" });
+    }
+
+    // 4️⃣ Prevent same password
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return res.status(400).json({
+        msg: "New password cannot be same as current password",
+      });
+    }
+
+    // 5️⃣ Prevent reuse (SAFE)
+    const history = user.passwordHistory || [];
+
+    for (let old of history) {
+      const match = await bcrypt.compare(newPassword, old);
+      if (match) {
+        return res.status(400).json({
+          msg: "Cannot reuse old password",
+        });
+      }
+    }
+
+    // 6️⃣ Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 7️⃣ Store old password
+    user.passwordHistory = history;
+    user.passwordHistory.unshift(user.password);
+
+    if (user.passwordHistory.length > 5) {
+      user.passwordHistory.pop();
+    }
+
+    // 8️⃣ Update
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.json({ msg: "Password changed successfully" });
+
+  } catch (err) {
+    handleError(res, err, "Change password failed");
+  }
+});
+
 module.exports = router;
