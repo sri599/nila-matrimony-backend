@@ -312,5 +312,97 @@ router.put("/change-password", auth, async (req, res) => {
     handleError(res, err, "Change password failed");
   }
 });
+router.post("/upload-image", auth, async (req, res) => {
+  try {
+    const { url, public_id } = req.body;
+
+    if (!url || !public_id) {
+      return res.status(400).json({ msg: "Image data required" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    user.images.push({ url, public_id });
+
+    await user.save();
+
+    res.json({
+      msg: "Image added",
+      images: user.images,
+    });
+
+  } catch (err) {
+    res.status(500).send("Upload failed");
+  }
+});
+router.delete("/delete-image/:id", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    const image = user.images.find(
+      (img) => img._id.toString() === req.params.id
+    );
+
+    if (!image) {
+      return res.status(404).json({ msg: "Image not found" });
+    }
+
+    // 👉 Later: delete from Cloudinary using public_id
+
+    user.images = user.images.filter(
+      (img) => img._id.toString() !== req.params.id
+    );
+
+    await user.save();
+
+    res.json({ msg: "Image deleted", images: user.images });
+
+  } catch (err) {
+    res.status(500).send("Delete failed");
+  }
+});
+router.post("/upload-horoscope", auth, async (req, res) => {
+  try {
+    const { url, public_id } = req.body;
+
+    if (!url || !public_id) {
+      return res.status(400).json({ msg: "Horoscope required" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    user.horoscope = { url, public_id };
+
+    await user.save();
+
+    res.json({
+      msg: "Horoscope uploaded",
+      horoscope: user.horoscope,
+    });
+
+  } catch (err) {
+    res.status(500).send("Upload failed");
+  }
+});
+router.delete("/delete-horoscope", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user.horoscope) {
+      return res.status(404).json({ msg: "No horoscope found" });
+    }
+
+    // 👉 Later: delete from Cloudinary using public_id
+
+    user.horoscope = null;
+
+    await user.save();
+
+    res.json({ msg: "Horoscope deleted" });
+
+  } catch (err) {
+    res.status(500).send("Delete failed");
+  }
+});
 
 module.exports = router;

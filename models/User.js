@@ -38,6 +38,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+images: [
+  {
+    url: String,
+    public_id: String,
+  },
+],
+
+horoscope: {
+  url: String,
+  public_id: String,
+},
 
     // 🆔 IDs
     userId: String,
