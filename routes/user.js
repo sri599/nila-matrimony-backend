@@ -6,31 +6,41 @@ const Interest = require("../models/Interest");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary");
 
-router.post("/upload-to-cloudinary", auth, async (req, res) => {
-  try {
-    const { base64Image, type } = req.body;
+const multer = require("multer");                              // ✅ ADD THIS
 
-    if (!base64Image) {
+const upload = multer({ storage: multer.memoryStorage() });   // ✅ ADD THIS
+
+// ✅ REPLACED — old base64 route removed, multer version added
+router.post("/upload-to-cloudinary", auth, upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
       return res.status(400).json({ msg: "Image required" });
     }
 
     const user = await User.findById(req.user.id);
+    const type = req.body.type || "gallery";
 
-    // ✅ Clean username (important)
     const safeName = (user.username || "user")
       .replace(/[^a-zA-Z0-9]/g, "_")
       .toLowerCase();
 
-    // ✅ Folder structure
-    const folder = `nila_matrimony/users/${user._id}_${safeName}/${type || "gallery"}`;
+    const folder = `nila_matrimony/users/${user._id}_${safeName}/${type}`;
 
-    // ✅ Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(base64Image, {
-      folder: folder,
-      transformation: [
-        { width: 1200, height: 1200, crop: "limit" },
-        { quality: "auto", fetch_format: "webp" },
-      ],
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          transformation: [
+            { width: 1200, height: 1200, crop: "limit" },
+            { quality: "auto", fetch_format: "webp" },
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
     });
 
     res.json({
@@ -39,8 +49,8 @@ router.post("/upload-to-cloudinary", auth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: "Upload failed" });
+    console.error("Upload error:", err);
+    res.status(500).json({ msg: "Upload failed", detail: err.message });
   }
 });
 
