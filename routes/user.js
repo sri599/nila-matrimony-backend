@@ -362,16 +362,23 @@ router.post("/upload-image", auth, async (req, res) => {
 
     const user = await User.findById(req.user.id);
 
-    user.images.push({ url, public_id });
+    if (user.images.length >= 5) {
+      return res.status(400).json({ msg: "Maximum 5 photos allowed" });
+    }
 
+    user.images.push({ url, public_id });
     await user.save();
+
+    // ✅ Return the newly added image (last item) so Flutter gets the real _id
+    const newImage = user.images[user.images.length - 1];
 
     res.json({
       msg: "Image added",
+      image: newImage,   // { _id, url, public_id }
       images: user.images,
     });
-
   } catch (err) {
+    console.error(err);
     res.status(500).send("Upload failed");
   }
 });
@@ -434,15 +441,17 @@ router.delete("/delete-horoscope", auth, async (req, res) => {
       return res.status(404).json({ msg: "No horoscope found" });
     }
 
-    // 👉 Later: delete from Cloudinary using public_id
+    // ✅ Delete from Cloudinary using stored public_id
+    if (user.horoscope.public_id) {
+      await cloudinary.uploader.destroy(user.horoscope.public_id);
+    }
 
     user.horoscope = null;
-
     await user.save();
 
     res.json({ msg: "Horoscope deleted" });
-
   } catch (err) {
+    console.error(err);
     res.status(500).send("Delete failed");
   }
 });
