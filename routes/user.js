@@ -4,6 +4,46 @@ const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
 const Interest = require("../models/Interest");
 const bcrypt = require("bcryptjs");
+const cloudinary = require("../config/cloudinary");
+
+router.post("/upload-to-cloudinary", auth, async (req, res) => {
+  try {
+    const { base64Image, type } = req.body;
+
+    if (!base64Image) {
+      return res.status(400).json({ msg: "Image required" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    // ✅ Clean username (important)
+    const safeName = (user.username || "user")
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .toLowerCase();
+
+    // ✅ Folder structure
+    const folder = `nila_matrimony/users/${user._id}_${safeName}/${type || "gallery"}`;
+
+    // ✅ Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(base64Image, {
+      folder: folder,
+      transformation: [
+        { width: 1200, height: 1200, crop: "limit" },
+        { quality: "auto", fetch_format: "webp" },
+      ],
+    });
+
+    res.json({
+      url: result.secure_url,
+      public_id: result.public_id,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Upload failed" });
+  }
+});
+
 router.get("/users-with-interest", auth, async (req, res) => {
   try {
     // 1️⃣ Get all users except current user
@@ -347,8 +387,10 @@ router.delete("/delete-image/:id", auth, async (req, res) => {
       return res.status(404).json({ msg: "Image not found" });
     }
 
-    // 👉 Later: delete from Cloudinary using public_id
+    // ✅ Delete from Cloudinary
+    await cloudinary.uploader.destroy(image.public_id);
 
+    // ✅ Remove from DB
     user.images = user.images.filter(
       (img) => img._id.toString() !== req.params.id
     );
