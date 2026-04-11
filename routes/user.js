@@ -14,6 +14,14 @@ router.post("/upload-to-cloudinary", auth, async (req, res) => {
       return res.status(400).json({ msg: "Image required" });
     }
 
+    // ✅ Log config at request time — not just at startup
+    const cloudinaryConfig = require("../config/cloudinary").config();
+    console.log("Runtime config:", {
+      cloud_name: cloudinaryConfig.cloud_name ?? "❌ MISSING",
+      api_key:    cloudinaryConfig.api_key    ? "✅ set" : "❌ MISSING",
+      api_secret: cloudinaryConfig.api_secret ? "✅ set" : "❌ MISSING",
+    });
+
     const user = await User.findById(req.user.id);
     const safeName = (user.username || "user")
       .replace(/[^a-zA-Z0-9]/g, "_")
@@ -23,8 +31,6 @@ router.post("/upload-to-cloudinary", auth, async (req, res) => {
 
     const result = await cloudinary.uploader.upload(base64Image, {
       folder,
-      // ✅ No transformations — client already compressed
-      // ✅ eager: [] — no eager transforms = no extra cost
       overwrite: false,
       resource_type: "image",
     });
@@ -33,8 +39,12 @@ router.post("/upload-to-cloudinary", auth, async (req, res) => {
       url: result.secure_url,
       public_id: result.public_id,
     });
+
   } catch (err) {
-    console.error("Upload error:", err);
+    // ✅ Log the FULL error object — not just message
+    console.error("Full error:", JSON.stringify(err, null, 2));
+    console.error("Error message:", err.message);
+    console.error("Error http_code:", err.http_code);
     res.status(500).json({ msg: "Upload failed", detail: err.message });
   }
 });
