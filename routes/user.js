@@ -6,48 +6,34 @@ const Interest = require("../models/Interest");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary");
 
-const multer = require("multer");                              // ✅ ADD THIS
-
-const upload = multer({ storage: multer.memoryStorage() });   // ✅ ADD THIS
-
-// ✅ REPLACED — old base64 route removed, multer version added
-router.post("/upload-to-cloudinary", auth, upload.single("image"), async (req, res) => {
+// Back to base64 — remove multer, restore original upload-to-cloudinary
+router.post("/upload-to-cloudinary", auth, async (req, res) => {
   try {
-    if (!req.file) {
+    const { base64Image, type } = req.body;
+
+    if (!base64Image) {
       return res.status(400).json({ msg: "Image required" });
     }
 
     const user = await User.findById(req.user.id);
-    const type = req.body.type || "gallery";
-
     const safeName = (user.username || "user")
       .replace(/[^a-zA-Z0-9]/g, "_")
       .toLowerCase();
 
-    const folder = `nila_matrimony/users/${user._id}_${safeName}/${type}`;
+    const folder = `nila_matrimony/users/${user._id}_${safeName}/${type || "gallery"}`;
 
-    const result = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder,
-          transformation: [
-            { width: 1200, height: 1200, crop: "limit" },
-            { quality: "auto", fetch_format: "webp" },
-          ],
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      stream.end(req.file.buffer);
+    const result = await cloudinary.uploader.upload(base64Image, {
+      folder,
+      transformation: [
+        { width: 1200, height: 1200, crop: "limit" },
+        { quality: "auto", fetch_format: "webp" },
+      ],
     });
 
     res.json({
       url: result.secure_url,
       public_id: result.public_id,
     });
-
   } catch (err) {
     console.error("Upload error:", err);
     res.status(500).json({ msg: "Upload failed", detail: err.message });
