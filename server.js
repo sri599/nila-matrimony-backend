@@ -13,6 +13,11 @@ connectDB();
 
 const app    = express();
 const server = http.createServer(app);
+const io     = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
+
+// ── Middleware ────────────────────────────────────────────────────────────
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -23,18 +28,18 @@ app.options("/{*path}", cors());
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(cors());
 
+// ── Routes ────────────────────────────────────────────────────────────────
 app.use("/api/auth",         require("./routes/auth"));
 app.use("/api/user",         require("./routes/user"));
 app.use("/api/interests",    require("./routes/interest"));
 app.use("/api/notification", require("./routes/notification"));
-app.use("/api/messages",     require("./routes/message"));  // ✅ new
+app.use("/api/messages",     require("./routes/message"));
 
 app.get("/", (req, res) => res.send("Matrimony API Running"));
 
 // ── Socket.IO ─────────────────────────────────────────────────────────────
-const onlineUsers = new Map(); // userId → socketId
+const onlineUsers = new Map();
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -53,12 +58,10 @@ io.on("connection", (socket) => {
   onlineUsers.set(userId, socket.id);
   io.emit("user_online", { userId, online: true });
 
-  // Join all user's conversation rooms
   socket.on("join_conversations", (convIds) => {
     convIds.forEach((id) => socket.join(id));
   });
 
-  // Send message via socket
   socket.on("send_message", async ({ conversationId, text }) => {
     try {
       const conv = await Conversation.findById(conversationId);
@@ -77,15 +80,13 @@ io.on("connection", (socket) => {
 
       const populated = await msg.populate("sender", "username images");
 
-      // Emit to everyone in the conversation room (including sender)
       io.to(conversationId).emit("new_message", populated);
 
-      // Update conversation list for all participants
       conv.participants.forEach((pId) => {
         const sid = onlineUsers.get(pId.toString());
         if (sid) io.to(sid).emit("conversation_updated", {
           conversationId,
-          lastMessage: populated,
+          lastMessage:  populated,
           lastActivity: conv.lastActivity,
         });
       });
@@ -94,12 +95,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Typing indicator
   socket.on("typing", ({ conversationId, isTyping }) => {
     socket.to(conversationId).emit("user_typing", { userId, isTyping });
   });
 
-  // Mark read
   socket.on("mark_read", async ({ conversationId }) => {
     await Message.updateMany(
       { conversationId, sender: { $ne: userId } },
