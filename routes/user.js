@@ -6,7 +6,6 @@ const Interest = require("../models/Interest");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary");
 
-// Back to base64 — remove multer, restore original upload-to-cloudinary
 router.post("/upload-to-cloudinary", auth, async (req, res) => {
   try {
     const { base64Image, type } = req.body;
@@ -24,10 +23,10 @@ router.post("/upload-to-cloudinary", auth, async (req, res) => {
 
     const result = await cloudinary.uploader.upload(base64Image, {
       folder,
-      transformation: [
-        { width: 1200, height: 1200, crop: "limit" },
-        { quality: "auto", fetch_format: "webp" },
-      ],
+      // ✅ No transformations — client already compressed
+      // ✅ eager: [] — no eager transforms = no extra cost
+      overwrite: false,
+      resource_type: "image",
     });
 
     res.json({
