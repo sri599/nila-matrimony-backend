@@ -5,7 +5,7 @@ const Message      = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const User         = require("../models/User");
 
-// ── Get or create conversation with another user ──────────────────────────
+// In routes/message.js — getOrCreateConversation
 router.post("/conversation/:userId", auth, async (req, res) => {
   try {
     const me    = req.user.id;
@@ -13,17 +13,20 @@ router.post("/conversation/:userId", auth, async (req, res) => {
 
     if (me === other) return res.status(400).json({ msg: "Cannot message yourself" });
 
-    // Find existing conversation between the two users
     let conv = await Conversation.findOne({
       participants: { $all: [me, other], $size: 2 },
-    }).populate("lastMessage");
+    });
 
     if (!conv) {
       conv = await Conversation.create({ participants: [me, other] });
     }
 
-    // Populate participants without password
+    // Populate both participants AND lastMessage
     conv = await conv.populate("participants", "-password");
+    conv = await conv.populate({
+      path: "lastMessage",
+      populate: { path: "sender", select: "username images" },
+    });
 
     res.json(conv);
   } catch (err) {
