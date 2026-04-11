@@ -19,7 +19,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: false,
 }));
-app.options("*", cors());
+app.options("/{*path}", cors());
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
