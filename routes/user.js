@@ -460,5 +460,81 @@ router.delete("/delete-horoscope", auth, async (req, res) => {
     res.status(500).send("Delete failed");
   }
 });
+router.delete("/delete-account", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    // 🧹 Delete related data (important)
+    await require("../models/Message").deleteMany({ sender: userId });
+    await require("../models/Conversation").deleteMany({
+      participants: userId,
+    });
+
+    await require("../models/Interest").deleteMany({
+      $or: [{ sender: userId }, { receiver: userId }],
+    });
+
+    // 🗑️ Delete user
+    await User.findByIdAndDelete(userId);
+
+    res.json({ msg: "User account deleted successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Delete account failed" });
+  }
+});
+router.post("/shortlist/:userId", auth, async (req, res) => {
+  try {
+    const shortlist = await require("../models/Shortlist").create({
+      user: req.user.id,
+      shortlistedUser: req.params.userId,
+    });
+
+    res.json({ msg: "Added to shortlist", shortlist });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ msg: "Already shortlisted" });
+    }
+    res.status(500).json({ msg: "Error adding shortlist" });
+  }
+});
+router.delete("/shortlist/:userId", auth, async (req, res) => {
+  try {
+    await require("../models/Shortlist").findOneAndDelete({
+      user: req.user.id,
+      shortlistedUser: req.params.userId,
+    });
+
+    res.json({ msg: "Removed from shortlist" });
+  } catch (err) {
+    res.status(500).json({ msg: "Error removing shortlist" });
+  }
+});
+router.get("/shortlist", auth, async (req, res) => {
+  try {
+    const list = await require("../models/Shortlist")
+      .find({ user: req.user.id })
+      .populate("shortlistedUser", "-password");
+
+    res.json({
+      count: list.length,
+      users: list.map(i => i.shortlistedUser),
+    });
+  } catch (err) {
+    res.status(500).json({ msg: "Error fetching shortlist" });
+  }
+});
+router.get("/shortlist/check/:userId", auth, async (req, res) => {
+  try {
+    const exists = await require("../models/Shortlist").findOne({
+      user: req.user.id,
+      shortlistedUser: req.params.userId,
+    });
+
+    res.json({ isShortlisted: !!exists });
+  } catch (err) {
+    res.status(500).json({ msg: "Error checking shortlist" });
+  }
+});
 module.exports = router;
