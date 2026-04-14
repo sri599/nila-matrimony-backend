@@ -494,16 +494,19 @@ router.put("/restore-account", auth, async (req, res) => {
 router.get("/active-users", auth, async (req, res) => {
   try {
     const users = await User.find({
-      isDeleted: false
-    }).select("-password");
+      isDeleted: false, // ✅ only active users
+    })
+      .where("_id")
+      .ne(req.user.id) // ✅ exclude current user (safe way)
+      .select("-password");
 
     res.json({
       count: users.length,
       users,
     });
-
   } catch (err) {
-    res.status(500).json({ msg: "Error fetching users" });
+    console.error(err.message);
+    res.status(500).send("Server Error");
   }
 });
 router.post("/shortlist/:userId", auth, async (req, res) => {
