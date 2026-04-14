@@ -494,8 +494,7 @@ router.put("/restore-account", auth, async (req, res) => {
 router.get("/active-users", auth, async (req, res) => {
   try {
     const users = await User.find({
-      isDeleted: false,
-      _id: { $ne: req.user.id },
+      isDeleted: false
     }).select("-password");
 
     res.json({
