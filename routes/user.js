@@ -460,28 +460,51 @@ router.delete("/delete-horoscope", auth, async (req, res) => {
     res.status(500).send("Delete failed");
   }
 });
-router.delete("/delete-account", auth, async (req, res) => {
+router.put("/delete-account", auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const user = await User.findById(req.user.id);
 
-    // 🧹 Delete related data (important)
-    await require("../models/Message").deleteMany({ sender: userId });
-    await require("../models/Conversation").deleteMany({
-      participants: userId,
-    });
+    user.isDeleted = true;
+    user.deletedAt = new Date();
 
-    await require("../models/Interest").deleteMany({
-      $or: [{ sender: userId }, { receiver: userId }],
-    });
+    await user.save();
 
-    // 🗑️ Delete user
-    await User.findByIdAndDelete(userId);
-
-    res.json({ msg: "User account deleted successfully" });
+    res.json({ msg: "Account deactivated successfully" });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Delete account failed" });
+    res.status(500).json({ msg: "Failed to deactivate account" });
+  }
+});
+router.put("/restore-account", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    user.isDeleted = false;
+    user.deletedAt = null;
+
+    await user.save();
+
+    res.json({ msg: "Account restored successfully" });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Restore failed" });
+  }
+});
+router.get("/active-users", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      isDeleted: false,
+      _id: { $ne: req.user.id },
+    }).select("-password");
+
+    res.json({
+      count: users.length,
+      users,
+    });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Error fetching users" });
   }
 });
 router.post("/shortlist/:userId", auth, async (req, res) => {

@@ -49,6 +49,14 @@ horoscope: {
   url: String,
   public_id: String,
 },
+isDeleted: {
+  type: Boolean,
+  default: false,
+},
+deletedAt: {
+  type: Date,
+  default: null,
+},
 
     // 🆔 IDs
     userId: String,
