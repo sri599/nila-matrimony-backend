@@ -487,54 +487,106 @@ router.delete("/delete-account", auth, async (req, res) => {
 router.post("/shortlist/:userId", auth, async (req, res) => {
   try {
     const shortlist = await require("../models/Shortlist").create({
-      user: req.user.id,
-      shortlistedUser: req.params.userId,
+      sender: req.user.id,
+      receiver: req.params.userId,
     });
 
-    res.json({ msg: "Added to shortlist", shortlist });
+    res.json({ msg: "Shortlisted", shortlist });
+
   } catch (err) {
     if (err.code === 11000) {
       return res.status(400).json({ msg: "Already shortlisted" });
     }
-    res.status(500).json({ msg: "Error adding shortlist" });
+    res.status(500).json({ msg: "Error" });
   }
 });
 router.delete("/shortlist/:userId", auth, async (req, res) => {
   try {
     await require("../models/Shortlist").findOneAndDelete({
-      user: req.user.id,
-      shortlistedUser: req.params.userId,
+      sender: req.user.id,
+      receiver: req.params.userId,
     });
 
-    res.json({ msg: "Removed from shortlist" });
+    res.json({ msg: "Removed shortlist" });
+
   } catch (err) {
-    res.status(500).json({ msg: "Error removing shortlist" });
+    res.status(500).json({ msg: "Error" });
   }
 });
-router.get("/shortlist", auth, async (req, res) => {
+router.get("/shortlist/sent", auth, async (req, res) => {
   try {
     const list = await require("../models/Shortlist")
-      .find({ user: req.user.id })
-      .populate("shortlistedUser", "-password");
+      .find({ sender: req.user.id })
+      .populate("receiver", "-password");
 
     res.json({
       count: list.length,
-      users: list.map(i => i.shortlistedUser),
-    });
-  } catch (err) {
-    res.status(500).json({ msg: "Error fetching shortlist" });
-  }
-});
-router.get("/shortlist/check/:userId", auth, async (req, res) => {
-  try {
-    const exists = await require("../models/Shortlist").findOne({
-      user: req.user.id,
-      shortlistedUser: req.params.userId,
+      users: list.map(i => i.receiver),
     });
 
-    res.json({ isShortlisted: !!exists });
   } catch (err) {
-    res.status(500).json({ msg: "Error checking shortlist" });
+    res.status(500).json({ msg: "Error" });
+  }
+});
+router.get("/shortlist/received", auth, async (req, res) => {
+  try {
+    const list = await require("../models/Shortlist")
+      .find({ receiver: req.user.id })
+      .populate("sender", "-password");
+
+    res.json({
+      count: list.length,
+      users: list.map(i => i.sender),
+    });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Error" });
+  }
+});
+router.get("/users-with-shortlist", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      _id: { $ne: req.user.id },
+    }).select("-password");
+
+    const shortlists = await require("../models/Shortlist").find({
+      $or: [
+        { sender: req.user.id },
+        { receiver: req.user.id },
+      ],
+    });
+
+    const map = {};
+
+    shortlists.forEach(s => {
+      const key1 = `${s.sender}_${s.receiver}`;
+      const key2 = `${s.receiver}_${s.sender}`;
+
+      map[key1] = s;
+      map[key2] = s;
+    });
+
+    const result = users.map(user => {
+      const relation = map[`${req.user.id}_${user._id}`];
+
+      return {
+        ...user.toObject(),
+        isShortlistedByMe: relation
+          ? relation.sender.toString() === req.user.id
+          : false,
+        shortlistedMe: relation
+          ? relation.receiver.toString() === req.user.id
+          : false,
+      };
+    });
+
+    res.json({
+      count: result.length,
+      users: result,
+    });
+
+  } catch (err) {
+    res.status(500).json({ msg: "Error" });
   }
 });
 module.exports = router;
