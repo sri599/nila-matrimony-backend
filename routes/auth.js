@@ -111,6 +111,12 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ msg: "Invalid password" });
     }
+     if (user.isDeleted) {
+      return res.status(403).json({
+        msg: "Account deactivated. Contact support or restore.",
+        isDeleted: true,
+      });
+    }
 
     // ✅ 4. Update last seen + FCM
     user.lastSeen = new Date();
