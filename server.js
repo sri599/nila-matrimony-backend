@@ -19,6 +19,7 @@ app.use("/api/interests",    require("./routes/interest"));
 app.use("/api/notification", require("./routes/notification"));
 app.use("/api/messages",     require("./routes/message"));
 app.use("/api/payment", require("./routes/payment"));
+app.use("/api/plan", require("./routes/plan"));
 
 app.get("/", (req, res) => res.send("API Running"));
 

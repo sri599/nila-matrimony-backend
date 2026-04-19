@@ -4,11 +4,20 @@ const PaymentSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
+    required: true,
   },
 
-  plan: String,
+  planId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Plan",
+  },
 
-  amount: Number,
+  planName: String,
+
+  amount: {
+    type: Number,
+    required: true,
+  },
 
   status: {
     type: String,
@@ -16,7 +25,11 @@ const PaymentSchema = new mongoose.Schema({
     default: "created",
   },
 
-  razorpay_order_id: String,
+  razorpay_order_id: {
+    type: String,
+    required: true,
+  },
+
   razorpay_payment_id: String,
   razorpay_signature: String,
 
