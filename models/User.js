@@ -57,7 +57,14 @@ deletedAt: {
   type: Date,
   default: null,
 },
-
+plan: {
+  type: String,
+  default: null,
+},
+contactsRemaining: {
+  type: Number,
+  default: 0,
+},
     // 🆔 IDs
     userId: String,
     matrimonyId: String,
