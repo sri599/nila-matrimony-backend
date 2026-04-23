@@ -61,9 +61,18 @@ plan: {
   type: String,
   default: null,
 },
+
+contactsLimit: {
+  type: Number,
+  default: 0
+},
+contactsUsed: {
+  type: Number,
+  default: 0
+},
 contactsRemaining: {
   type: Number,
-  default: 0,
+  default: 0
 },
     // 🆔 IDs
     userId: String,

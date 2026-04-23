@@ -108,9 +108,10 @@ router.post("/verify-payment", auth, async (req, res) => {
     if (!plan) {
       return res.status(400).json({ msg: "Plan not found" });
     }
-
     user.plan = plan.name;
-    user.contactsRemaining = plan.contactsLimit;
+user.contactsLimit = plan.contactsLimit;
+user.contactsUsed = 0;
+user.contactsRemaining = plan.contactsLimit;
 
     await user.save();
 
@@ -176,7 +177,9 @@ router.get("/my-plan", auth, async (req, res) => {
     const user = await User.findById(req.user.id);
 
     res.json({
-      plan: user.plan,
+      planName: user.plan,
+      contactsLimit: user.contactsLimit,
+      contactsUsed: user.contactsUsed,
       contactsRemaining: user.contactsRemaining,
     });
 
@@ -194,12 +197,17 @@ router.post("/use-contact", auth, async (req, res) => {
     if (!user.plan) {
       return res.status(400).json({ msg: "No active plan" });
     }
+    if (user.contactsUsed >= user.contactsLimit) {
+  return res.status(400).json({ msg: "No contacts left" });
+}
 
     if (user.contactsRemaining <= 0) {
       return res.status(400).json({ msg: "No contacts left" });
     }
+    
 
-    user.contactsRemaining -= 1;
+    user.contactsUsed += 1;
+user.contactsRemaining = user.contactsLimit - user.contactsUsed;
     await user.save();
 
     res.json({
