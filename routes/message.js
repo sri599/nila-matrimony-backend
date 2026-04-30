@@ -111,5 +111,33 @@ router.delete("/message/:messageId", async (req, res) => {
     res.status(500).json({ msg: "Error deleting message" });
   }
 });
+// PATCH /api/messages/message/:messageId/read
+router.patch("/message/:messageId/read", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const message = await Message.findByIdAndUpdate(
+      req.params.messageId,
+      { $addToSet: { readBy: userId } },   // addToSet avoids duplicates
+      { new: true }
+    );
+    res.json(message);
+  } catch (err) {
+    res.status(500).json({ msg: "Error marking as read" });
+  }
+});
+
+// PATCH /api/messages/conversation/:conversationId/read-all  
+router.patch("/conversation/:conversationId/read-all", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    await Message.updateMany(
+      { conversationId: req.params.conversationId, readBy: { $ne: userId } },
+      { $addToSet: { readBy: userId } }
+    );
+    res.json({ msg: "All messages marked as read" });
+  } catch (err) {
+    res.status(500).json({ msg: "Error marking messages as read" });
+  }
+});
 
 module.exports = router;
