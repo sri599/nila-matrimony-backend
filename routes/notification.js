@@ -4,12 +4,16 @@ const Notification = require("../models/Notification");
 const auth = require("../middleware/authMiddleware");
 
 
-// ✅ CREATE
 router.post("/", auth, async (req, res) => {
   try {
+    const { receiverId, title, subtitle, description } = req.body;
+
     const notification = new Notification({
-      userId: req.user.id,
-      ...req.body
+      senderId: req.user.id,   // 👈 who sends
+      receiverId,              // 👈 who receives
+      title,
+      subtitle,
+      description
     });
 
     await notification.save();
@@ -20,10 +24,12 @@ router.post("/", auth, async (req, res) => {
 });
 
 
-// ✅ GET ALL
 router.get("/", auth, async (req, res) => {
   try {
-    const notifications = await Notification.find({ userId: req.user.id });
+    const notifications = await Notification.find({
+      receiverId: req.user.id
+    }).sort({ createdAt: -1 });
+
     res.json(notifications);
   } catch (err) {
     res.status(500).send("Server Error");
