@@ -98,17 +98,28 @@ router.get("/users-with-interest", auth, async (req, res) => {
     res.status(500).send("Server Error");
   }
 });
-// GET ALL USERS (Protected)
+
+// GET users by gender (dynamic)
 router.get("/users", auth, async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const { gender } = req.query;
+
+    const filter = {
+      isDeleted: false,
+      _id: { $ne: req.user.id }
+    };
+
+    if (gender) {
+      filter.gender = { $regex: `^${gender}$`, $options: "i" };
+    }
+
+    const users = await User.find(filter).select("-password");
 
     res.json({
       count: users.length,
       users,
     });
   } catch (err) {
-    console.error(err.message);
     res.status(500).send("Server Error");
   }
 });
