@@ -5,6 +5,7 @@ const auth = require("../middleware/authMiddleware");
 const Interest = require("../models/Interest");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary");
+const sendPush = require("../utils/sendPush");
 
 router.post("/upload-to-cloudinary", auth, async (req, res) => {
   try {
@@ -527,6 +528,24 @@ router.post("/shortlist/:userId", auth, async (req, res) => {
       receiver: req.params.userId,
     });
 
+    // 🔔 FIRE & FORGET PUSH (DO NOT AWAIT)
+    (async () => {
+      try {
+        const sender = await User.findById(req.user.id);
+        const receiver = await User.findById(req.params.userId);
+
+        if (receiver?.fcmToken) {
+          sendPush({
+            token: receiver.fcmToken,
+            title: "Profile Shortlisted ❤️",
+            body: `${sender.username} shortlisted your profile`,
+          });
+        }
+      } catch (err) {
+        console.error("Push error (shortlist):", err.message);
+      }
+    })();
+
     res.json({ msg: "Shortlisted", shortlist });
 
   } catch (err) {
@@ -538,10 +557,29 @@ router.post("/shortlist/:userId", auth, async (req, res) => {
 });
 router.delete("/shortlist/:userId", auth, async (req, res) => {
   try {
+    const receiverId = req.params.userId;
+
     await require("../models/Shortlist").findOneAndDelete({
       sender: req.user.id,
-      receiver: req.params.userId,
+      receiver: receiverId,
     });
+
+    (async () => {
+      try {
+        const sender = await User.findById(req.user.id);
+        const receiver = await User.findById(receiverId);
+
+        if (receiver?.fcmToken) {
+          sendPush({
+            token: receiver.fcmToken,
+            title: "Shortlist Removed",
+            body: `${sender.username} removed you from shortlist`,
+          });
+        }
+      } catch (err) {
+        console.error("Push error (remove shortlist):", err.message);
+      }
+    })();
 
     res.json({ msg: "Removed shortlist" });
 
@@ -623,6 +661,26 @@ router.get("/users-with-shortlist", auth, async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ msg: "Error" });
+  }
+});
+
+router.put("/update-fcm", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    user.fcmToken = req.body.token;
+
+    await user.save();
+
+    res.json({ msg: "FCM updated successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Failed to update FCM token" });
   }
 });
 module.exports = router;

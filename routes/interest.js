@@ -2,19 +2,17 @@ const express = require("express");
 const router = express.Router();
 const Interest = require("../models/Interest");
 const auth = require("../middleware/authMiddleware");
+const User = require("../models/User");
+const sendPush = require("../utils/sendPush");
 
-
-// ✅ SEND INTEREST
 router.post("/", auth, async (req, res) => {
   try {
     const { receiverId } = req.body;
 
-    // ❌ Prevent self request
     if (receiverId === req.user.id) {
       return res.status(400).json({ msg: "Cannot send interest to yourself" });
     }
 
-    // ❌ Prevent duplicate
     const exists = await Interest.findOne({
       sender: req.user.id,
       receiver: receiverId,
@@ -31,7 +29,19 @@ router.post("/", auth, async (req, res) => {
 
     await interest.save();
 
+    const sender = await User.findById(req.user.id);
+    const receiver = await User.findById(receiverId);
+
+    if (receiver?.fcmToken) {
+      await sendPush({
+        token: receiver.fcmToken,
+        title: "New Interest 💖",
+        body: `${sender.username} showed interest in your profile`,
+      });
+    }
+
     res.json(interest);
+
   } catch (err) {
     res.status(500).send("Server Error");
   }
@@ -64,7 +74,6 @@ router.get("/received", auth, async (req, res) => {
 });
 
 
-// ✅ ACCEPT / REJECT INTEREST
 router.put("/:id", auth, async (req, res) => {
   try {
     const { status } = req.body; // accepted / rejected
@@ -75,16 +84,38 @@ router.put("/:id", auth, async (req, res) => {
       return res.status(404).json({ msg: "Interest not found" });
     }
 
-    // Only receiver can update
     if (interest.receiver.toString() !== req.user.id) {
       return res.status(403).json({ msg: "Not authorized" });
     }
 
     interest.status = status;
-
     await interest.save();
 
+    // 🔔 PUSH NOTIFICATION (ACCEPT / REJECT)
+    const sender = await User.findById(interest.sender);
+    const receiver = await User.findById(req.user.id);
+
+    if (sender?.fcmToken) {
+      let title = "";
+      let body = "";
+
+      if (status === "accepted") {
+        title = "Interest Accepted ✅";
+        body = `${receiver.username} accepted your interest`;
+      } else if (status === "rejected") {
+        title = "Interest Declined ❌";
+        body = `${receiver.username} declined your interest`;
+      }
+
+      await sendPush({
+        token: sender.fcmToken,
+        title,
+        body,
+      });
+    }
+
     res.json(interest);
+
   } catch (err) {
     res.status(500).send("Server Error");
   }
