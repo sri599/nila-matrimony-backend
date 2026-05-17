@@ -22,6 +22,14 @@ app.use("/api/payment", require("./routes/payment"));
 app.use("/api/plan", require("./routes/plan"));
 app.use("/api/support", require("./routes/support"));
 
+app.get("/ping", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Server awake",
+    timestamp: Date.now(),
+  });
+});
+
 app.get("/", (req, res) => res.send("API Running"));
 
 // ── Start Server ───────────────────
